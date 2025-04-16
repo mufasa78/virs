@@ -53,6 +53,22 @@ pip install -r requirements.txt
 
 ## Usage
 
+### Web Interface
+
+The system provides a user-friendly web interface using Streamlit. There are two versions of the app:
+
+1. **Full Version** (requires PyTorch):
+```bash
+python -m streamlit run streamlit_app.py
+```
+
+2. **Simplified Version** (no PyTorch dependency):
+```bash
+python -m streamlit run fixed_app.py
+```
+
+The simplified version is recommended for deployment as it's more stable and has fewer dependencies.
+
 ### Training
 
 To train the model:

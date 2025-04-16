@@ -5,19 +5,11 @@ import tempfile
 import cv2
 import numpy as np
 import streamlit as st
-import asyncio
 from models.basic_model import BasicVideoRestoration
 from utils.data_utils import extract_frames, frames_to_video
 from translations import translations
 
-# Initialize asyncio event loop
-try:
-    loop = asyncio.get_event_loop()
-except RuntimeError:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-# Initialize PyTorch
+# Initialize PyTorch with no gradients for inference
 torch.set_grad_enabled(False)
 
 # Set page configuration
@@ -67,24 +59,29 @@ def load_model(checkpoint_path, device_name='cpu'):
     device = torch.device(device_name if torch.cuda.is_available() else 'cpu')
     st.write(f"Using device: {device}")
 
-    # Build model - using BasicVideoRestoration model
-    model = BasicVideoRestoration(
-        in_channels=3,
-        out_channels=3,
-        hidden_channels=64
-    )
+    try:
+        # Build model - using BasicVideoRestoration model
+        model = BasicVideoRestoration(
+            in_channels=3,
+            out_channels=3,
+            hidden_channels=64
+        )
 
-    # Load checkpoint if provided
-    if checkpoint_path and os.path.exists(checkpoint_path):
-        model.load_checkpoint(checkpoint_path)
-        st.write(f"Model loaded from {checkpoint_path}")
-    else:
-        st.write("Using untrained model")
+        # Load checkpoint if provided
+        if checkpoint_path and os.path.exists(checkpoint_path):
+            model.load_checkpoint(checkpoint_path)
+            st.write(f"Model loaded from {checkpoint_path}")
+        else:
+            st.write("Using untrained model")
 
-    model = model.to(device)
-    model.eval()
+        model = model.to(device)
+        model.eval()
 
-    return model, config, device
+        return model, config, device
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        # Return a dummy model for testing
+        return None, config, device
 
 def preprocess_frame(frame, frame_size=(128, 128)):
     """Preprocess a frame for model input."""
@@ -130,7 +127,8 @@ def process_video(model, device, config, input_path, output_path, sequence_lengt
         os.makedirs(output_frames_dir, exist_ok=True)
 
         # Extract frames from input video
-        st.write(translations[st.session_state.lang_code]['extracted_frames'].format(len(frames)))
+        num_frames = extract_frames(input_path, input_frames_dir)
+        st.write(translations[st.session_state.lang_code]['extracted_frames'].format(num_frames))
 
         # Get list of frame files
         frame_files = sorted([f for f in os.listdir(input_frames_dir) if f.endswith(('.png', '.jpg', '.jpeg'))])
@@ -139,7 +137,7 @@ def process_video(model, device, config, input_path, output_path, sequence_lengt
         frame_size = config['data']['frame_size']
 
         # Process frames in sequences
-        st.write(translations[st.session_state.lang_code]['processing_frames'].format(sequence_length, frame_overlap))
+        st.write(translations[st.session_state.lang_code]['processing_frames'].format(sequence_length, overlap))
 
         # Create sequences with overlap
         sequences = []
@@ -172,10 +170,13 @@ def process_video(model, device, config, input_path, output_path, sequence_lengt
                 frames_tensor = frames_tensor.permute(0, 2, 1, 3, 4).to(device)
 
                 # Forward pass
-                output = model(frames_tensor)
-
-                # Reshape back to [B, T, C, H, W]
-                output = output.permute(0, 2, 1, 3, 4)[0]  # [T, C, H, W]
+                if model is not None:
+                    output = model(frames_tensor)
+                    # Reshape back to [B, T, C, H, W]
+                    output = output.permute(0, 2, 1, 3, 4)[0]  # [T, C, H, W]
+                else:
+                    # If model is None, just use the input frames as output (identity function)
+                    output = frames_tensor.permute(0, 2, 1, 3, 4)[0]  # [T, C, H, W]
 
                 # Save output frames, accounting for overlap
                 for i, frame_tensor in enumerate(output):
@@ -197,7 +198,7 @@ def process_video(model, device, config, input_path, output_path, sequence_lengt
         st.write(translations[st.session_state.lang_code]['creating_video'])
         frames_to_video(output_frames_dir, output_path)
 
-        st.text(f"Video processing completed!")
+        st.success(translations[st.session_state.lang_code]['processing_complete'])
         return output_path
 
 def main():
@@ -208,15 +209,14 @@ def main():
     checkpoint_path = st.sidebar.text_input(translations[lang_code]['model_checkpoint'], "checkpoints/best_model.pth")
 
     # Load model
-    try:
-        model, config, device = load_model(checkpoint_path if os.path.exists(checkpoint_path) else None)
+    model, config, device = load_model(checkpoint_path if os.path.exists(checkpoint_path) else None)
+    if model is not None:
         if os.path.exists(checkpoint_path):
             st.sidebar.success(translations[lang_code]['model_loaded'])
         else:
             st.sidebar.warning(translations[lang_code]['using_untrained'])
-    except Exception as e:
-        st.error(translations[st.session_state.lang_code]['load_error'].format(str(e)))
-        return
+    else:
+        st.sidebar.warning("Using fallback processing (no model)")
 
     # Processing parameters
     st.sidebar.header(translations[st.session_state.lang_code]['processing_params'])
@@ -227,7 +227,7 @@ def main():
 
     # File uploader
     st.subheader(translations[lang_code]['upload_video'])
-    uploaded_file = st.file_uploader(translations[st.session_state.lang_code]['choose_video'], 
+    uploaded_file = st.file_uploader(translations[st.session_state.lang_code]['choose_video'],
                                     type=['mp4', 'avi', 'mov', 'mkv', 'webm'],
                                     help=translations[st.session_state.lang_code]['supported_formats'])
 
@@ -242,7 +242,7 @@ def main():
         st.video(input_path)
 
         # Process button
-        if st.button(translations[lang_code]['process_another']):
+        if st.button(translations[lang_code]['process_another'] if 'process_another' in translations[lang_code] else 'Process Video'):
             # Create output path
             output_filename = f"enhanced_{uploaded_file.name}"
             output_path = os.path.join(RESULTS_DIR, output_filename)
@@ -253,10 +253,13 @@ def main():
 
             try:
                 output_path = process_video(model, device, config, input_path, output_path,
-                                           sequence_length, overlap, progress_bar)
+                                           sequence_length, frame_overlap, progress_bar)
 
                 # Display results
                 st.subheader(translations[st.session_state.lang_code]['enhanced_video'])
+
+                # Display enhanced video
+                st.video(output_path)
 
                 # Download button
                 with open(output_path, "rb") as file:
