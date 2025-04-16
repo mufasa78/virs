@@ -130,9 +130,7 @@ def process_video(model, device, config, input_path, output_path, sequence_lengt
         os.makedirs(output_frames_dir, exist_ok=True)
 
         # Extract frames from input video
-        st.text(f"Extracting frames from video...")
-        num_frames = extract_frames(input_path, input_frames_dir)
-        st.text(f"Extracted {num_frames} frames")
+        st.write(translations[st.session_state.lang_code]['extracted_frames'].format(len(frames)))
 
         # Get list of frame files
         frame_files = sorted([f for f in os.listdir(input_frames_dir) if f.endswith(('.png', '.jpg', '.jpeg'))])
@@ -141,7 +139,7 @@ def process_video(model, device, config, input_path, output_path, sequence_lengt
         frame_size = config['data']['frame_size']
 
         # Process frames in sequences
-        st.text(f"Processing frames with sequence length {sequence_length} and overlap {overlap}...")
+        st.write(translations[st.session_state.lang_code]['processing_frames'].format(sequence_length, frame_overlap))
 
         # Create sequences with overlap
         sequences = []
@@ -196,19 +194,15 @@ def process_video(model, device, config, input_path, output_path, sequence_lengt
                     cv2.imwrite(output_path_frame, frame)
 
         # Create output video
-        st.text(f"Creating output video...")
+        st.write(translations[st.session_state.lang_code]['creating_video'])
         frames_to_video(output_frames_dir, output_path)
 
         st.text(f"Video processing completed!")
         return output_path
 
 def main():
-    # Display header
-    st.title(translations[lang_code]['page_title'])
-    st.markdown(translations[lang_code]['page_subtitle'])
-
-    # Sidebar for model selection and parameters
-    st.sidebar.title(translations[lang_code]['model_settings'])
+    # Model settings in sidebar
+    st.sidebar.header(translations[st.session_state.lang_code]['model_settings'])
 
     # Check if checkpoint exists
     checkpoint_path = st.sidebar.text_input(translations[lang_code]['model_checkpoint'], "checkpoints/best_model.pth")
@@ -221,20 +215,21 @@ def main():
         else:
             st.sidebar.warning(translations[lang_code]['using_untrained'])
     except Exception as e:
-        st.sidebar.error(f"Error loading model: {str(e)}")
-        st.error("Failed to load the model. Please check the checkpoint path and try again.")
+        st.error(translations[st.session_state.lang_code]['load_error'].format(str(e)))
         return
 
     # Processing parameters
-    st.sidebar.title(translations[lang_code]['processing_params'])
-    sequence_length = st.sidebar.slider(translations[lang_code]['sequence_length'], 3, 16, config['data']['sequence_length'],
-                                       help=translations[lang_code]['sequence_length_help'])
-    overlap = st.sidebar.slider(translations[lang_code]['frame_overlap'], 0, 8, 2,
-                               help=translations[lang_code]['frame_overlap_help'])
+    st.sidebar.header(translations[st.session_state.lang_code]['processing_params'])
+    sequence_length = st.sidebar.slider(translations[st.session_state.lang_code]['sequence_length'], 2, 16, 8,
+                                      help=translations[st.session_state.lang_code]['sequence_length_help'])
+    frame_overlap = st.sidebar.slider(translations[st.session_state.lang_code]['frame_overlap'], 0, 8, 2,
+                                    help=translations[st.session_state.lang_code]['frame_overlap_help'])
 
     # File uploader
     st.subheader(translations[lang_code]['upload_video'])
-    uploaded_file = st.file_uploader(translations[lang_code]['choose_video'], type=["mp4", "avi", "mov", "mkv", "webm"])
+    uploaded_file = st.file_uploader(translations[st.session_state.lang_code]['choose_video'], 
+                                    type=['mp4', 'avi', 'mov', 'mkv', 'webm'],
+                                    help=translations[st.session_state.lang_code]['supported_formats'])
 
     if uploaded_file is not None:
         # Save uploaded file
@@ -261,19 +256,18 @@ def main():
                                            sequence_length, overlap, progress_bar)
 
                 # Display results
-                st.subheader("Enhanced Video")
-                st.video(output_path)
+                st.subheader(translations[st.session_state.lang_code]['enhanced_video'])
 
                 # Download button
                 with open(output_path, "rb") as file:
                     st.download_button(
-                        label="Download Enhanced Video",
+                        label=translations[st.session_state.lang_code]['download_enhanced'],
                         data=file,
                         file_name=output_filename,
                         mime="video/mp4"
                     )
             except Exception as e:
-                st.error(f"Error processing video: {str(e)}")
+                st.error(translations[st.session_state.lang_code]['process_error'].format(str(e)))
 
 if __name__ == "__main__":
     main()
