@@ -1,0 +1,64 @@
+# General Configuration
+general:
+  seed: 42
+  device: 'cuda'  # 'cuda' or 'cpu'
+  num_workers: 4
+  save_dir: './checkpoints'
+  log_dir: './logs'
+
+# Data Configuration
+data:
+  train_path: './data/train'
+  val_path: './data/val'
+  test_path: './data/test'
+  frame_size: [64, 64]  # Further reduced size for faster training
+  sequence_length: 3  # Further reduced sequence length
+  augmentation: True
+
+# Training Configuration
+train:
+  batch_size: 1
+  num_epochs: 50  # Reduced epochs for testing
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  scheduler: 'cosine'
+  lr_patience: 5
+  lr_step_size: 20
+  lr_gamma: 0.5
+
+# Model Configuration
+model:
+  type: 'vrt'
+
+  # VRT Configuration (smaller model)
+  vrt:
+    embed_dim: 32  # Reduced embedding dimension
+    depths: [2, 2, 2, 2]  # Reduced depth
+    num_heads: [2, 2, 2, 2]  # Reduced heads
+    window_size: [4, 4, 4, 4]  # Smaller window size
+    mlp_ratio: 2.0
+    qkv_bias: True
+    qk_scale: None
+    drop_rate: 0.0
+    attn_drop_rate: 0.0
+    drop_path_rate: 0.1
+
+# Loss Configuration
+loss:
+  l1_weight: 1.0
+  perceptual_weight: 0.0  # Disabled for faster training
+  adversarial_weight: 0.0  # Disabled for faster training
+
+# Evaluation Configuration
+eval:
+  metrics: ['psnr', 'ssim']  # Removed LPIPS for faster evaluation
+  save_results: True
+
+# Inference Configuration
+inference:
+  checkpoint_path: './checkpoints/best_model.pth'
+  input_path: './data/test_videos'
+  output_path: './data/results'
+  batch_size: 1
+  save_frames: False
+  save_video: True

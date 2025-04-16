@@ -1,0 +1,21 @@
+Deep Learning Video Image Repair System
+├── data/
+│   ├── raw/                  # Raw video data
+│   ├── processed/            # Processed frames
+│   └── results/              # Output results
+├── models/
+│   ├── alignment/            # Frame alignment models
+│   ├── super_resolution/     # Super-resolution models
+│   ├── denoising/            # Denoising models
+│   ├── deblurring/           # Deblurring models
+│   └── color_enhancement/    # Color enhancement models
+├── utils/
+│   ├── data_utils.py         # Data loading and preprocessing utilities
+│   ├── metrics.py            # Evaluation metrics (PSNR, SSIM)
+│   └── visualization.py      # Visualization utilities
+├── config/
+│   └── config.yaml           # Configuration parameters
+├── train.py                  # Training script
+├── test.py                   # Testing script
+├── inference.py              # Inference script for real-world videos
+└── requirements.txt          # Dependencies
