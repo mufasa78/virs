@@ -5,9 +5,17 @@ import tempfile
 import cv2
 import numpy as np
 import streamlit as st
+import asyncio
 from models.basic_model import BasicVideoRestoration
 from utils.data_utils import extract_frames, frames_to_video
 from translations import translations
+
+# Initialize asyncio event loop for Python 3.13 compatibility
+try:
+    loop = asyncio.get_running_loop()
+except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
 # Initialize PyTorch with no gradients for inference
 torch.set_grad_enabled(False)
